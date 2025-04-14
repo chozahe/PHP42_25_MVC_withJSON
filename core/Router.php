@@ -35,8 +35,7 @@ class Router
     {
         $path = $this->request->getUri();
         $method = $this->request->getMethod();
-        if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/"  ,$path))
-        {
+        if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/", $path)) {
             $this->renderStatic(ltrim($path, "/"));
             return;
         }
@@ -46,6 +45,7 @@ class Router
             $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_NOT_FOUND);
             return;
         }
+
         $callback = $this->routes[$method->value][$path];
 
         if (is_string($callback)) {
@@ -60,11 +60,43 @@ class Router
         }
     }
 
-    public function renderView(string $name): void {
-        include PROJECT_ROOT."views/$name.php";
+    //решил создать отдельные методы для работы с json, т.к. будет нада в моей семестровой
+    public function resolveJson(): void
+    {
+        $path = $this->request->getUri();
+        $method = $this->request->getMethod();
+
+        if (!isset($this->routes[$method->value]) || !isset($this->routes[$method->value][$path])) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Not Found']);
+            return;
+        }
+
+        $callback = $this->routes[$method->value][$path];
+
+        if (is_array($callback)) {
+            $result = call_user_func($callback, $this->request);
+
+            //чекнул что лучше всего json encode работает с массивами, так что пусть их принимает пока
+            if (is_array($result)) {
+                header('Content-Type: application/json');
+                echo json_encode($result);
+            } else {
+                echo json_encode(['error' => 'Invalid API response']);
+            }
+            return;
+        }
+        echo json_encode(['error' => 'Invalid API route']);
     }
 
-    public function renderStatic(string $name): void {
-        include PROJECT_ROOT."web/$name";
+
+    public function renderView(string $name): void
+    {
+        include PROJECT_ROOT . "views/$name.php";
+    }
+
+    public function renderStatic(string $name): void
+    {
+        include PROJECT_ROOT . "web/$name";
     }
 }

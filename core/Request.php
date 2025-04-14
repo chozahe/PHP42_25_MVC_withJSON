@@ -35,4 +35,13 @@ class Request
         }
         return $body;
     }
+
+    //почитал, что &_POST не парсит jsonки так что отдельни метод напистаь нада
+    public function getJsonBody(): array
+    {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        return is_array($data) ? $data : [];
+    }
 }

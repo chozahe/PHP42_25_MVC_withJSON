@@ -19,14 +19,16 @@ class Application
         $this->router = new Router($this->request, $this->response);
     }
 
-    public function run() {
 
-        try {
+    //если uri начинается с /api, то вызываем специальный метод для обработки json, иначе как обычно вроде ничего ломаться не должно
+    public function run(): void
+    {
+        $uri = $this->request->getUri();
+
+        if (str_starts_with($uri, '/api')) {
+            $this->router->resolveJson();
+        } else {
             $this->router->resolve();
-        }
-        catch (\Exception $exception) {
-            var_dump($exception);
-            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_SERVER_ERROR);
         }
     }
 

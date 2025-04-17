@@ -20,11 +20,9 @@ class Application
     }
 
 
-    //если uri начинается с /api, то вызываем специальный метод для обработки json, иначе как обычно вроде ничего ломаться не должно
     public function run(): void
     {
-            $this->router->resolve();
-
+        $this->router->resolve();
     }
 
     public function getRequest(): Request

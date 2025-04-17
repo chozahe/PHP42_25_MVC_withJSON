@@ -1,25 +1,26 @@
 <?php
-//просто чтобы проверить работоспособность моих неких новвоведений
 
 namespace app\controllers\api;
 
 use app\core\Application;
+use app\utilits\JsonRenderable;
 
 class ApiController
 {
-    public function hello()
+
+    use JsonRenderable;
+
+    public function hello(): void
     {
-        return ['message' => 'привет json!'];
+        $this->renderJson(['message' => 'привет json!']);
     }
 
-    public function helloUser(): array
+    public function helloUser(): void
     {
         $body = Application::$app->getRequest()->getJsonBody();
 
         $username = $body['username'] ?? 'гость';
 
-        return [
-            'message' => 'Привет, ' . $username . '!'
-        ];
+        $this->renderJson(['message' => 'Привет, ' . $username . '!']);
     }
 }

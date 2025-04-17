@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace app\core;
 
+use app\exceptions\RouteException;
+
 class Router
 {
     private Request $request;
 
+    private Response $response;
+
     private array $routes = [];
 
-    public function __construct(Request $request)
+
+    public function __construct(Request $request, Response $response)
     {
         $this->request = $request;
+        $this->response = $response;
     }
 
     public function setGetRoute(string $path, string|array $callback): void
@@ -37,12 +43,15 @@ class Router
 
         if (!isset($this->routes[$method->value]) || !isset($this->routes[$method->value][$path])) {
             $this->renderStatic("404.html");
-            http_response_code(404);
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_NOT_FOUND);
             return;
         }
         $callback = $this->routes[$method->value][$path];
 
         if (is_string($callback)) {
+            if (empty($callback)) {
+                throw new RouteException("empty callback");
+            }
             $this->renderView($callback);
         }
 

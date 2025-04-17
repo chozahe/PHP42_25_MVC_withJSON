@@ -23,13 +23,8 @@ class Application
     //если uri начинается с /api, то вызываем специальный метод для обработки json, иначе как обычно вроде ничего ломаться не должно
     public function run(): void
     {
-        $uri = $this->request->getUri();
-
-        if (str_starts_with($uri, '/api')) {
-            $this->router->resolveJson();
-        } else {
             $this->router->resolve();
-        }
+
     }
 
     public function getRequest(): Request

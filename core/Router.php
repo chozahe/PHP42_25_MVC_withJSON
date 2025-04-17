@@ -61,7 +61,7 @@ class Router
     }
 
     //решил создать отдельные методы для работы с json, т.к. будет нада в моей семестровой
-    public function resolveJson(): void
+/*     public function resolveJson(): void
     {
         $path = $this->request->getUri();
         $method = $this->request->getMethod();
@@ -89,7 +89,7 @@ class Router
         echo json_encode(['error' => 'Invalid API route']);
     }
 
-
+ */
     public function renderView(string $name): void
     {
         include PROJECT_ROOT . "views/$name.php";
@@ -99,4 +99,7 @@ class Router
     {
         include PROJECT_ROOT . "web/$name";
     }
+
+    
+
 }

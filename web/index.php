@@ -20,6 +20,7 @@ $router->setGetRoute("/", [new PresentationController(), "getView"]);
 $router->setPostRoute("/handle", [new PresentationController(), "handleView"]);
 $router->setGetRoute("/api/helloApi", [new ApiController(), "hello"]);
 $router->setPostRoute("/api/helloApi", [new ApiController(), "helloUser"]);
+$router->setGetRoute("/error", "");
 
 ob_start();
 $application->run();

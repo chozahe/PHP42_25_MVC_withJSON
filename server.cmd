@@ -1,0 +1,1 @@
+php -S localhost:8042 web/index.php

@@ -7,6 +7,7 @@ namespace app\controllers;
 use app\core\Application;
 use app\core\Logger;
 use app\exceptions\FileException;
+use app\mappers\UserMapper;
 use app\models\User;
 
 class PresentationController
@@ -18,8 +19,11 @@ class PresentationController
   public function handleView() {
       $body = Application::$app->getRequest()->getBody();
       try {
-          (new User())->assign($body)->save();
-          Application::$app->getRouter()->renderView("success");
+         $mapper = new UserMapper();
+         $user = $mapper->createObject($body);
+         $mapper->Insert($user);
+         $users = $mapper->SelectAll();
+         var_dump($users);
       } catch (\PDOException $exception)
       {
           Application::$app->getLogger()->error($exception);

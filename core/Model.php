@@ -6,36 +6,28 @@ namespace app\core;
 
 abstract class Model
 {
-    public abstract function getTableName(): string;
+    private ?int $id;
 
-    public abstract function getAttributes(): array;
-
-    private array $fields;
-
-    public function save()
+    public function __construct(?int $id)
     {
-        $attributes = $this->getAttributes();
-        $attributes = array_filter($attributes, fn($value)=>$value!=="id");
-        $table = $this->getTableName();
-        $params = array_map(fn($attribute) => ":$attribute", $attributes);
-        $statement = $this->prepare("INSERT INTO $table(" . implode(",", $attributes) . ") VALUES(" . implode(",", $params) . ");");
-        $statement->execute($this->fields);
-    }
-
-    public function assign(array $data): Model
-    {
-        $attributes = $this->getAttributes();
-        foreach ($data as $key => $value) {
-            if (!in_array($key, $attributes)) {
-                continue;
-            }
-            $this->fields[":$key"] = $value;
+        if (!is_null($id)) {
+            $this->setId($id);
         }
-        return $this;
     }
 
-    private function prepare(string $query): \PDOStatement
+    /**
+     * @return int|null
+     */
+    public function getId(): ?int
     {
-        return Application::$app->getDatabase()->pdo->prepare($query);
+        return $this->id;
+    }
+
+    /**
+     * @param int|null $id
+     */
+    public function setId(?int $id): void
+    {
+        $this->id = $id;
     }
 }

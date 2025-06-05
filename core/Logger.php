@@ -10,6 +10,8 @@ use Psr\Log\AbstractLogger;
 class Logger extends AbstractLogger
 {
 
+    
+
     private string $filename;
 
     public function __construct(string $filename)
@@ -28,4 +30,6 @@ class Logger extends AbstractLogger
     {
         file_put_contents($this->filename, sprintf("%s\t[$level] $message", date("H-m-s")));
     }
+
+
 }

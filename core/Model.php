@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\core;
 
+use app\controllers\api\ApiController;
+
 abstract class Model
 {
     private ?int $id;

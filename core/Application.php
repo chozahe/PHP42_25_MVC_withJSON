@@ -16,7 +16,7 @@ class Application
     public function __construct()
     {
         self::$app = $this;
-        $this->logger = new Logger(sprintf("%sruntime/%s", PROJECT_ROOT, $_ENV["APP_LOG"]));
+        $this->logger = new Logger(sprintf("%s%s/%s",PROJECT_ROOT, $_ENV["APP_LOG_PATH"], $_ENV["APP_LOG"]));
         $this->request = new Request();
         $this->response = new Response();
         $this->router = new Router($this->request, $this->response);
@@ -43,5 +43,21 @@ class Application
     public function getRouter(): Router
     {
         return $this->router;
+    }
+
+        /**
+     * @return Logger
+     */
+    public function getLogger(): Logger
+    {
+        return $this->logger;
+    }
+
+    /**
+     * @return Database
+     */
+    public function getDatabase(): Database
+    {
+        return $this->database;
     }
 }

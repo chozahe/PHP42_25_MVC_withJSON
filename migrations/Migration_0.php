@@ -12,18 +12,24 @@ class Migration_0 extends \app\core\Migration
         return 0;
     }
 
-    function up(): void
+    public function up(): void
     {
-        $this->database->pdo->query("CREATE TABLE IF NOT EXISTS users
-        (
-            id serial primary key ,
-            first_name character varying(100)  NOT NULL,
-            second_name character varying(100)  NOT NULL,
-            age integer,
-            job text,
-            email text
-        );");
-
+        $this->database->pdo->query("
+            CREATE TABLE users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                email VARCHAR(100) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                first_name VARCHAR(100),
+                second_name VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
         parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE users");
     }
 }

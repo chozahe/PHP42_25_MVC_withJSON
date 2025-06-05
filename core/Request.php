@@ -36,7 +36,7 @@ class Request
         return $body;
     }
 
-    
+
     //почитал, что &_POST не парсит jsonки так что отдельни метод напистаь нада
     public function getJsonBody(): array
     {
@@ -45,6 +45,4 @@ class Request
 
         return is_array($data) ? $data : [];
     }
-
-    
 }

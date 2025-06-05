@@ -6,6 +6,7 @@ use app\controllers\PresentationController;
 use app\core\Application;
 use app\core\ConfigParser;
 use app\controllers\api\ApiController;
+use app\core\JsonConfigLoader;
 
 const PROJECT_ROOT = __DIR__ . "/../";
 
@@ -18,6 +19,12 @@ if ($_ENV["APP_ENV"] === "dev") {
     ini_set("log_errors", "1");
     ini_set("error_log", sprintf("%sruntime/%s", PROJECT_ROOT, $_ENV["PHP_LOG"]));
 }
+
+
+$jsonConfigPath = "config/app.json";
+$jsonLoader = new JsonConfigLoader($jsonConfigPath);
+$jsonLoader->load();
+
 
 
 

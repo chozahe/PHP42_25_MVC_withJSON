@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 namespace app\mappers;
+
 use app\core\Mapper;
 use app\core\Model;
-use app\models\User;
+use app\core\Community;
 
-class UserMapper extends Mapper
+class CommunityMapper extends Mapper
 {
     private ?\PDOStatement $insert;
     private ?\PDOStatement $update;
@@ -17,33 +18,31 @@ class UserMapper extends Mapper
     {
         parent::__construct();
         $this->insert = $this->getPdo()->prepare("
-            INSERT INTO users (username, email, password_hash, first_name, second_name)
-            VALUES (:username, :email, :password_hash, :first_name, :second_name)
+            INSERT INTO communities (name, description, creator_id)
+            VALUES (:name, :description, :creator_id)
         ");
         $this->update = $this->getPdo()->prepare("
-            UPDATE users
-            SET username = :username, email = :email, password_hash = :password_hash,
-                first_name = :first_name, second_name = :second_name
+            UPDATE communities
+            SET name = :name, description = :description, creator_id = :creator_id
             WHERE id = :id
         ");
-        $this->delete = $this->getPdo()->prepare("DELETE FROM users WHERE id = :id");
-        $this->select = $this->getPdo()->prepare("SELECT * FROM users WHERE id = :id");
-        $this->selectAll = $this->getPdo()->prepare("SELECT * FROM users");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM communities WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM communities WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("SELECT * FROM communities");
     }
 
     protected function doInsert(Model $model): Model
     {
-        /** @var User $model */
+        /** @var Community $model */
         $this->insert->execute([
-            ':username' => $model->getUsername(),
-            ':email' => $model->getEmail(),
-            ':password_hash' => $model->getPasswordHash(),
-            ':first_name' => $model->getFirstName(),
-            ':second_name' => $model->getSecondName()
+            ':name' => $model->getName(),
+            ':description' => $model->getDescription(),
+            ':creator_id' => $model->getCreatorId()
         ]);
         $id = $this->getPdo()->lastInsertId();
         $model->setId((int)$id);
 
+        // Получаем created_at после вставки
         $this->select->execute([':id' => $id]);
         $data = $this->select->fetch(\PDO::FETCH_NAMED);
         if ($data !== false) {
@@ -55,20 +54,18 @@ class UserMapper extends Mapper
 
     protected function doUpdate(Model $model): void
     {
-        /** @var User $model */
+        /** @var Community $model */
         $this->update->execute([
             ':id' => $model->getId(),
-            ':username' => $model->getUsername(),
-            ':email' => $model->getEmail(),
-            ':password_hash' => $model->getPasswordHash(),
-            ':first_name' => $model->getFirstName(),
-            ':second_name' => $model->getSecondName()
+            ':name' => $model->getName(),
+            ':description' => $model->getDescription(),
+            ':creator_id' => $model->getCreatorId()
         ]);
     }
 
     protected function doDelete(Model $model): void
     {
-        /** @var User $model */
+        /** @var Community $model */
         $this->delete->execute([':id' => $model->getId()]);
     }
 
@@ -92,13 +89,11 @@ class UserMapper extends Mapper
 
     public function createObject(array $data): Model
     {
-        return new User(
+        return new Community(
             id: isset($data['id']) ? (int)$data['id'] : null,
-            username: $data['username'],
-            email: $data['email'],
-            password_hash: $data['password_hash'],
-            first_name: $data['first_name'] ?? null,
-            second_name: $data['second_name'] ?? null
+            name: $data['name'],
+            description: $data['description'] ?? null,
+            creator_id: isset($data['creator_id']) ? (int)$data['creator_id'] : null
         );
     }
 }

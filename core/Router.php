@@ -33,8 +33,7 @@ class Router
 
     public function resolve(): void
     {
-        $path = $this->request->getUri();
-        $method = $this->request->getMethod();
+        $path = parse_url($this->request->getUri(), PHP_URL_PATH);        $method = $this->request->getMethod();
         if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/", $path)) {
             $this->renderStatic(ltrim($path, "/"));
             return;

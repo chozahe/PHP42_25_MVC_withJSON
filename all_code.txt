@@ -1,0 +1,531 @@
+<?php
+
+declare(strict_types=1);
+
+namespace app\models;
+
+use app\core\Model;
+
+class User extends Model
+{
+
+    public function getTableName(): string
+    {
+      return "users";
+    }
+
+    public function getAttributes(): array
+    {
+        return ["id", "first_name", "second_name", "email", "job", "age"];
+    }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+enum MethodEnum: string
+{
+    case GET = "GET";
+    case POST = "POST";
+    case PUT = "PUT";
+    case DELETE = "DELETE";
+}
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+enum HttpStatusCodeEnum: int
+{
+    case HTTP_OK = 200;
+
+    case HTTP_NOT_FOUND = 404;
+
+    case HTTP_SERVER_ERROR = 500;
+}
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+abstract class Model
+{
+    public abstract function getTableName(): string;
+
+    public abstract function getAttributes(): array;
+
+    private array $fields;
+
+    public function save()
+    {
+        $attributes = $this->getAttributes();
+        $attributes = array_filter($attributes, fn($value)=>$value!=="id");
+        $table = $this->getTableName();
+        $params = array_map(fn($attribute) => ":$attribute", $attributes);
+        $statement = $this->prepare("INSERT INTO $table(" . implode(",", $attributes) . ") VALUES(" . implode(",", $params) . ");");
+        $statement->execute($this->fields);
+    }
+
+    public function assign(array $data): Model
+    {
+        $attributes = $this->getAttributes();
+        foreach ($data as $key => $value) {
+            if (!in_array($key, $attributes)) {
+                continue;
+            }
+            $this->fields[":$key"] = $value;
+        }
+        return $this;
+    }
+
+    private function prepare(string $query): \PDOStatement
+    {
+        return Application::$app->getDatabase()->pdo->prepare($query);
+    }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class ConfigParser
+{
+    public static function load()
+    {
+        $filename = PROJECT_ROOT . ".env";
+        if (!file_exists($filename)) return;
+        $lines = file($filename);
+        foreach ($lines as $line) {
+            $dataline = trim(explode("#", $line)[0]);
+            if (strlen($dataline)===0) continue;
+            $params = explode("=", $dataline, 2);
+            if (count($params)!==2) continue;
+            $key = rtrim($params[0]);
+            $value = ltrim($params[1]);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+            putenv("$key=$value");
+
+        }
+    }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Request
+{
+    public function getUri(): string
+    {
+        return $_SERVER["REQUEST_URI"];
+    }
+
+    public function getMethod(): MethodEnum
+    {
+        return MethodEnum::from($_SERVER["REQUEST_METHOD"]);
+    }
+
+    public function getBody(): array
+    {
+        $body = [];
+        switch ($this->getMethod()) {
+            case MethodEnum::GET:
+            case MethodEnum::DELETE:
+                foreach ($_GET as $key => $value) {
+                    $body[$key] = filter_input(INPUT_GET, $key, FILTER_SANITIZE_SPECIAL_CHARS);
+                }
+                break;
+            case MethodEnum::POST:
+            case MethodEnum::PUT:
+                foreach ($_POST as $key => $value) {
+                    $body[$key] = filter_input(INPUT_POST, $key, FILTER_SANITIZE_SPECIAL_CHARS);
+                }
+                break;
+        }
+        return $body;
+    }
+
+
+    //почитал, что &_POST не парсит jsonки так что отдельни метод напистаь нада
+    public function getJsonBody(): array
+    {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        return is_array($data) ? $data : [];
+    }
+}
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Application
+{
+    public static Application $app;
+    private Request $request;
+    private Response $response;
+    private Router $router;
+    private Logger $logger;
+    private Database $database;
+
+    public function __construct()
+    {
+        self::$app = $this;
+        $this->logger = new Logger(sprintf("%sruntime/%s", PROJECT_ROOT, $_ENV["APP_LOG"]));
+        $this->request = new Request();
+        $this->response = new Response();
+        $this->router = new Router($this->request, $this->response);
+        $this->database = new Database(getenv("DB_DSN"), getenv("DB_USER"), getenv("DB_PASSWORD"));
+
+    }
+
+    public function run()
+    {
+
+        try {
+            $this->router->resolve();
+        } catch (\Exception $exception) {
+            $this->getLogger()->error("Cannot resolve route: $exception");
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_SERVER_ERROR);
+        }
+    }
+
+    public function getRequest(): Request
+    {
+        return $this->request;
+    }
+
+    public function getRouter(): Router
+    {
+        return $this->router;
+    }
+
+        /**
+     * @return Logger
+     */
+    public function getLogger(): Logger
+    {
+        return $this->logger;
+    }
+
+    /**
+     * @return Database
+     */
+    public function getDatabase(): Database
+    {
+        return $this->database;
+    }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Response
+{
+   public function setStatusCode(HttpStatusCodeEnum $status)
+   {
+       \http_response_code($status->value);
+   }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use PDO;
+class Database
+{
+  public PDO $pdo;
+  public function __construct(string $dsn, string $user, string $password)
+  {
+      $this->pdo = new PDO($dsn, $user, $password);
+      $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use app\exceptions\FileException;
+use Psr\Log\AbstractLogger;
+
+class Logger extends AbstractLogger
+{
+
+    private string $filename;
+
+    public function __construct(string $filename)
+    {
+        $this->filename = $filename;
+
+        $dir = dirname($filename);
+        if (!file_exists($dir))
+        {
+           $success =  mkdir($dir, 0777, true);
+           if (!$success) throw new FileException("Cannot create log dir");
+        }
+    }
+
+    public function log($level, $message, array $context = array()): void
+    {
+        file_put_contents($this->filename, sprintf("%s\t[$level] $message", date("H-m-s")));
+    }
+}<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use app\exceptions\RouteException;
+
+class Router
+{
+    private Request $request;
+
+    private Response $response;
+
+    private array $routes = [];
+
+
+    public function __construct(Request $request, Response $response)
+    {
+        $this->request = $request;
+        $this->response = $response;
+    }
+
+    public function setGetRoute(string $path, string|array $callback): void
+    {
+        $this->routes[MethodEnum::GET->value][$path] = $callback;
+    }
+
+    public function setPostRoute(string $path, string|array $callback): void
+    {
+        $this->routes[MethodEnum::POST->value][$path] = $callback;
+    }
+
+    public function resolve(): void
+    {
+        $path = parse_url($this->request->getUri(), PHP_URL_PATH);        $method = $this->request->getMethod();
+        if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/", $path)) {
+            $this->renderStatic(ltrim($path, "/"));
+            return;
+        }
+
+        if (!isset($this->routes[$method->value]) || !isset($this->routes[$method->value][$path])) {
+            $this->renderStatic("404.html");
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_NOT_FOUND);
+            return;
+        }
+
+        $callback = $this->routes[$method->value][$path];
+
+        if (is_string($callback)) {
+            if (empty($callback)) {
+                throw new RouteException("empty callback");
+            }
+            $this->renderView($callback);
+        }
+
+        if (is_array($callback)) {
+            call_user_func($callback, $this->request);
+        }
+    }
+
+    public function renderView(string $name): void
+    {
+        include PROJECT_ROOT . "views/$name.php";
+    }
+
+    public function renderStatic(string $name): void
+    {
+        include PROJECT_ROOT . "web/$name";
+    }
+}
+<?php
+
+namespace app\controllers\api;
+
+use app\core\Application;
+use app\utilits\JsonRenderable;
+
+class ApiController
+{
+
+    use JsonRenderable;
+
+    public function hello(): void
+    {
+        $this->renderJson(['message' => 'привет json!']);
+    }
+
+    public function helloUser(): void
+    {
+        $body = Application::$app->getRequest()->getJsonBody();
+
+        $username = $body['username'] ?? 'гость';
+
+        $this->renderJson(['message' => 'Привет, ' . $username . '!']);
+    }
+}
+<?php
+
+declare(strict_types=1);
+
+namespace app\controllers;
+
+use app\core\Application;
+use app\core\Logger;
+use app\exceptions\FileException;
+use app\models\User;
+
+class PresentationController
+{
+  public function getView() {
+      Application::$app->getRouter()->renderView("presentation");
+  }
+
+  public function handleView() {
+      $body = Application::$app->getRequest()->getBody();
+      try {
+          (new User())->assign($body)->save();
+          Application::$app->getRouter()->renderView("success");
+      } catch (\PDOException $exception)
+      {
+          Application::$app->getLogger()->error($exception);
+
+      }
+
+  }
+}<?php
+
+declare(strict_types=1);
+
+use app\controllers\PresentationController;
+use app\core\Application;
+use app\core\ConfigParser;
+use app\controllers\api\ApiController;
+
+const PROJECT_ROOT = __DIR__ . "/../";
+
+require PROJECT_ROOT . "vendor/autoload.php";
+
+ConfigParser::load();
+if ($_ENV["APP_ENV"] === "dev") {
+    error_reporting(E_ALL);
+    ini_set("display_errors", "1");
+    ini_set("log_errors", "1");
+    ini_set("error_log", sprintf("%sruntime/%s", PROJECT_ROOT, $_ENV["PHP_LOG"]));
+}
+
+
+
+
+
+$application = new Application();
+
+$router = $application->getRouter();
+
+$router->setGetRoute("/", [new PresentationController(), "getView"]);
+$router->setPostRoute("/handle", [new PresentationController(), "handleView"]);
+$router->setGetRoute("/api/helloApi", [new ApiController(), "hello"]);
+$router->setPostRoute("/api/helloApi", [new ApiController(), "helloUser"]);
+$router->setGetRoute("/error", "");
+
+ob_start();
+$application->run();
+ob_flush();
+<?php
+
+declare(strict_types=1);
+
+namespace app\exceptions;
+
+class RouteException extends \Exception
+{
+
+}<?php
+
+declare(strict_types=1);
+
+namespace app\exceptions;
+
+class FileException extends \Exception
+{
+   private string $filename;
+
+   public function __construct(string $message = "", int $code = 0, ?\Throwable $previous = null, string $filename="")
+   {
+       parent::__construct($message, $code, $previous);
+       $this->filename = $filename;
+   }
+
+    /**
+     * @return string
+     */
+    public function getFilename(): string
+    {
+        return $this->filename;
+    }
+}<html lang="ru">
+<head>
+    <title>Форма</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<h2>Регистрация</h2>
+<form action="/handle" method="post">
+    <dl>
+        <dt><label for="first_name">Имя</label></dt>
+        <dd><input type="text" name="first_name" id="first_name"></dd>
+
+        <dt><label for="second_name">Фамилия</label></dt>
+        <dd><input type="text" name="second_name" id="second_name"></dd>
+
+        <dt><label for="age">Возраст</label></dt>
+        <dd><input type="text" name="age" id="age"></dd>
+
+        <dt><label for="email">E-Mail</label></dt>
+        <dd><input type="text" name="email" id="email"></dd>
+
+
+        <dt><label for="job">РАБота</label></dt>
+        <dd><input type="text" name="job" id="job"></dd>
+
+        <dt></dt>
+        <dd><input type="submit" value="submit"></dd>
+
+
+    </dl>
+
+
+</form>
+</body>
+</html><html lang="ru">
+<head>
+    <title>Success</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<h1>Success!</h1>
+<a href="/">На главную</a>
+</body>
+</html><?php
+
+namespace app\utilits;
+
+trait JsonRenderable
+{
+    public function renderJson(array $data): void
+    {
+        header('Content-Type: application/json');
+        echo json_encode($data);
+    }
+}

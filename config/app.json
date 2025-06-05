@@ -1,0 +1,11 @@
+{
+  "logs": {
+    "path": "runtime/"
+  },
+  "jwt": {
+    "secret": "och_secretny_cluch",
+    "algorithm": "HS256",
+    "token_ttl": 3600,
+    "refresh_token_ttl": 86400
+  }
+}

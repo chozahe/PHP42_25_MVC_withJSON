@@ -1,122 +1,91 @@
 <?php
-
 declare(strict_types=1);
-
 namespace app\models;
-
 use app\core\Model;
 
 class User extends Model
 {
+    private string $username;
+    private string $email;
+    private string $password_hash;
+    private ?string $first_name;
+    private ?string $second_name;
+    private ?string $created_at;
 
- //["id", "first_name", "second_name", "email", "job", "age"];
-
-    private string $first_name;
-
-    /**
-     * @return string
-     */
-    public function getFirstName(): string
-    {
-        return $this->first_name;
-    }
-
-    /**
-     * @param string $first_name
-     */
-    public function setFirstName(string $first_name): void
-    {
+    public function __construct(
+        ?int $id,
+        string $username,
+        string $email,
+        string $password_hash,
+        ?string $first_name,
+        ?string $second_name
+    ) {
+        parent::__construct($id);
+        $this->username = $username;
+        $this->email = $email;
+        $this->password_hash = $password_hash;
         $this->first_name = $first_name;
-    }
-
-    /**
-     * @return string
-     */
-    public function getSecondName(): string
-    {
-        return $this->second_name;
-    }
-
-    /**
-     * @param string $second_name
-     */
-    public function setSecondName(string $second_name): void
-    {
         $this->second_name = $second_name;
+        $this->created_at = null;
     }
 
-    /**
-     * @return string
-     */
+    public function getUsername(): string
+    {
+        return $this->username;
+    }
+
+    public function setUsername(string $username): void
+    {
+        $this->username = $username;
+    }
+
     public function getEmail(): string
     {
         return $this->email;
     }
 
-    /**
-     * @param string $email
-     */
     public function setEmail(string $email): void
     {
         $this->email = $email;
     }
 
-    /**
-     * @return string
-     */
-    public function getJob(): string
+    public function getPasswordHash(): string
     {
-        return $this->job;
+        return $this->password_hash;
     }
 
-    /**
-     * @param string $job
-     */
-    public function setJob(string $job): void
+    public function setPasswordHash(string $password_hash): void
     {
-        $this->job = $job;
+        $this->password_hash = $password_hash;
     }
 
-    /**
-     * @return int
-     */
-    public function getAge(): int
+    public function getFirstName(): ?string
     {
-        return $this->age;
+        return $this->first_name;
     }
 
-    /**
-     * @param int $age
-     */
-    public function setAge(int $age): void
+    public function setFirstName(?string $first_name): void
     {
-        $this->age = $age;
-    }
-
-    private  string $second_name;
-
-    private string $email;
-
-    private string $job;
-
-    private  int $age;
-
-    /**
-     * @param string $first_name
-     * @param string $second_name
-     * @param string $email
-     * @param string $job
-     * @param int $age
-     */
-    public function __construct(?int $id, string $first_name, string $second_name, string $email, string $job, int $age)
-    {
-        parent::__construct($id);
         $this->first_name = $first_name;
-        $this->second_name = $second_name;
-        $this->email = $email;
-        $this->job = $job;
-        $this->age = $age;
     }
 
+    public function getSecondName(): ?string
+    {
+        return $this->second_name;
+    }
 
+    public function setSecondName(?string $second_name): void
+    {
+        $this->second_name = $second_name;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
 }

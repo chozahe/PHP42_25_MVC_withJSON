@@ -33,7 +33,8 @@ class Router
 
     public function resolve(): void
     {
-        $path = parse_url($this->request->getUri(), PHP_URL_PATH);        $method = $this->request->getMethod();
+        $path = parse_url($this->request->getUri(), PHP_URL_PATH);
+        $method = $this->request->getMethod();
         if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/", $path)) {
             $this->renderStatic(ltrim($path, "/"));
             return;
@@ -64,6 +65,11 @@ class Router
         include PROJECT_ROOT . "views/$name.php";
     }
 
+    public function renderTemplate(string $name, array $data=[]): void
+    {
+
+       Template::View($name.'.html', $data);
+    }
     public function renderStatic(string $name): void
     {
         include PROJECT_ROOT . "web/$name";

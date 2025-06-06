@@ -6,6 +6,9 @@ namespace app\core;
 
 class Request
 {
+
+    private array $jwtData = [];
+
     public function getUri(): string
     {
         return $_SERVER["REQUEST_URI"];
@@ -36,7 +39,6 @@ class Request
         return $body;
     }
 
-
     //почитал, что &_POST не парсит jsonки так что отдельни метод напистаь нада
     public function getJsonBody(): array
     {
@@ -44,5 +46,18 @@ class Request
         $data = json_decode($input, true);
 
         return is_array($data) ? $data : [];
+    }
+
+
+    //думаю неплохо хранить прям в request данные из jwt
+    public function setJwtData(array $jwtData): void
+    {
+        $this->jwtData = $jwtData;
+    }
+
+    
+    public function getJwtData(): array
+    {
+        return $this->jwtData;
     }
 }

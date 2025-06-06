@@ -1,0 +1,2485 @@
+=== FILE: ./migrations/AllMigrations.php ===
+<?php
+
+declare(strict_types=1);
+
+use app\migrations\{Migration_0, Migration_1, Migration_2, Migration_3, Migration_4, Migration_5};
+
+function getMigrations(): array
+{
+    return [
+        new Migration_0(), 
+        new Migration_1(), 
+        new Migration_2(),
+        new Migration_3(),
+        new Migration_4(),
+        new Migration_5()
+    ];
+}
+
+
+=== FILE: ./migrations/Migration_5.php ===
+<?php
+declare(strict_types=1);
+namespace app\migrations;
+class Migration_5 extends \app\core\Migration
+{
+    public function getVersion(): int
+    {
+        return 5;
+    }
+
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE refresh_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                token VARCHAR(255) NOT NULL UNIQUE,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
+        parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE refresh_tokens");
+    }
+}
+
+
+=== FILE: ./migrations/Migration_3.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\migrations;
+
+class Migration_3 extends \app\core\Migration{
+    
+    public function getVersion(): int
+    {
+        return 3;
+    }
+
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE tags (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) NOT NULL UNIQUE
+            );
+        ");
+
+        $this->database->pdo->query("
+        CREATE TABLE post_tags (
+                post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+                tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
+                PRIMARY KEY (post_id, tag_id)
+            )
+        ");
+        parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE post_tags");
+        $this->database->pdo->query("DROP TABLE tags");
+    }
+}
+
+
+=== FILE: ./migrations/Migration_4.php ===
+<?php 
+declare(strict_types=1);
+namespace app\migrations;
+class Migration_4 extends \app\core\Migration
+{
+    public function getVersion(): int
+    {
+        return 4;
+    }
+
+
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE comments (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                parent_comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                is_deleted BOOLEAN DEFAULT FALSE
+            );
+        ");
+        parent::up();
+    }
+    
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE comments");
+    }
+}
+
+
+
+=== FILE: ./migrations/Migration_0.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\migrations;
+
+class Migration_0 extends \app\core\Migration
+{
+
+    public function getVersion(): int
+    {
+        return 0;
+    }
+
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                email VARCHAR(100) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                first_name VARCHAR(100),
+                second_name VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
+        parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE users");
+    }
+}
+
+
+=== FILE: ./migrations/Migration_1.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\migrations;
+
+class Migration_1 extends \app\core\Migration
+{
+
+    
+    public function getVersion(): int
+    {
+        return 1;
+    }
+
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE communities (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+            );
+        ");
+        parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE communities");
+    }
+}
+
+
+=== FILE: ./migrations/Migration_2.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\migrations;
+
+class Migration_2 extends \app\core\Migration
+{
+
+    public function getVersion(): int
+    {
+        return 2;
+    }
+    public function up(): void
+    {
+        $this->database->pdo->query("
+            CREATE TABLE posts (
+                id SERIAL PRIMARY KEY,
+                community_id INTEGER REFERENCES communities(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                title VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP,
+                is_deleted BOOLEAN DEFAULT FALSE
+            );
+        ");
+        parent::up();
+    }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE posts");
+    }
+}
+
+
+=== FILE: ./console/migrate.php ===
+<?php
+
+declare(strict_types=1);
+
+use app\core\ConfigParser;
+use app\core\Database;
+
+const PROJECT_ROOT = __DIR__ . "/../";
+
+chdir(PROJECT_ROOT);
+
+require PROJECT_ROOT . "vendor/autoload.php";
+
+include 'migrations/AllMigrations.php';
+$migrations = getMigrations();
+
+$colorBlue   = "\033[1;34m";
+$colorYellow = "\033[1;33m";
+$colorGreen  = "\033[0;32m";
+$colorReset  = "\033[0m";
+
+echo $colorBlue . "Starting database migrations..." . PHP_EOL;
+echo $colorBlue . "
+     /\_/\  (
+    ( ^.^ ) _)
+      \"/  (
+     ( | | )
+    (__d b__)    
+    " . PHP_EOL . $colorReset;
+
+echo $colorYellow . sprintf("%s migrations found%s", count($migrations), PHP_EOL) . $colorReset;
+
+ConfigParser::load();
+
+$database = new Database(getenv("DB_DSN"), getenv("DB_USER"), getenv("DB_PASSWORD"));
+
+$database->pdo->query("CREATE TABLE if not exists migrations (version int);");
+$database->pdo->query("INSERT INTO migrations (version) values (-1);");
+
+$maxver = $database->pdo->query("SELECT max(version) FROM migrations")->fetch(PDO::FETCH_NUM)[0];
+echo $colorYellow . sprintf("Current migration: %s%s", $maxver, PHP_EOL) . $colorReset;
+
+foreach ($migrations as $migration) {
+    /** @var \app\core\Migration $migration */
+
+    if ($migration->getVersion() <= $maxver) continue;
+    $migration->setDatabase($database);
+    echo $colorBlue . sprintf("Applying migration %s...%s", $migration->getVersion(), PHP_EOL) . $colorReset;
+    $migration->up();
+    echo $colorGreen . sprintf("Migration %s applied successfully!%s", $migration->getVersion(), PHP_EOL) . $colorReset;
+}
+
+echo $colorGreen . "
+       |\_/|        
+  ____/ o o \\     
+/~____  =ø= /     
+(______)__m_m)    
+" . PHP_EOL;
+echo $colorGreen . "All migrations have been applied successfully!" . $colorReset . PHP_EOL;
+
+
+
+=== FILE: ./console/clear_cache.php ===
+<?php
+
+declare(strict_types=1);
+
+use app\core\Template;
+
+const PROJECT_ROOT = __DIR__ . "/../";
+spl_autoload_register(function ($className) {
+    require str_replace("app\\", PROJECT_ROOT, $className) . ".php";
+
+});
+
+Template::ClearCache();
+
+
+=== FILE: ./models/Community.php ===
+<?php
+declare(strict_types=1);
+namespace app\models;
+use app\core\Model;
+
+class Community extends Model
+{
+    private string $name;
+    private ?string $description;
+    private ?int $creator_id;
+    private ?string $created_at;
+
+    public function __construct(
+        ?int $id,
+        string $name,
+        ?string $description,
+        ?int $creator_id
+    ) {
+        parent::__construct($id);
+        $this->name = $name;
+        $this->description = $description;
+        $this->creator_id = $creator_id;
+        $this->created_at = null;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): void
+    {
+        $this->description = $description;
+    }
+
+    public function getCreatorId(): ?int
+    {
+        return $this->creator_id;
+    }
+
+    public function setCreatorId(?int $creator_id): void
+    {
+        $this->creator_id = $creator_id;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
+}
+
+
+
+=== FILE: ./models/Tag.php ===
+<?php
+declare(strict_types=1);
+namespace app\models;
+use app\core\Model;
+
+class Tag extends Model
+{
+    private string $name;
+
+    public function __construct(?int $id, string $name)
+    {
+        parent::__construct($id);
+        $this->name = $name;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
+}
+
+
+=== FILE: ./models/RefreshToken.php ===
+<?php
+declare(strict_types=1);
+namespace app\models;
+use app\core\Model;
+
+class RefreshToken extends Model
+{
+    private int $user_id;
+    private string $token;
+    private ?string $created_at;
+    private string $expires_at;
+
+    public function __construct(
+        ?int $id,
+        int $user_id,
+        string $token,
+        string $expires_at
+    ) {
+        parent::__construct($id);
+        $this->user_id = $user_id;
+        $this->token = $token;
+        $this->created_at = null;
+        $this->expires_at = $expires_at;
+    }
+
+    public function getUserId(): int
+    {
+        return $this->user_id;
+    }
+
+    public function setUserId(int $user_id): void
+    {
+        $this->user_id = $user_id;
+    }
+
+    public function getToken(): string
+    {
+        return $this->token;
+    }
+
+    public function setToken(string $token): void
+    {
+        $this->token = $token;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
+
+    public function getExpiresAt(): string
+    {
+        return $this->expires_at;
+    }
+
+    public function setExpiresAt(string $expires_at): void
+    {
+        $this->expires_at = $expires_at;
+    }
+}
+
+
+=== FILE: ./models/User.php ===
+<?php
+declare(strict_types=1);
+namespace app\models;
+use app\core\Model;
+
+class User extends Model
+{
+    private string $username;
+    private string $email;
+    private string $password_hash;
+    private ?string $first_name;
+    private ?string $second_name;
+    private ?string $created_at;
+
+    public function __construct(
+        ?int $id,
+        string $username,
+        string $email,
+        string $password_hash,
+        ?string $first_name,
+        ?string $second_name
+    ) {
+        parent::__construct($id);
+        $this->username = $username;
+        $this->email = $email;
+        $this->password_hash = $password_hash;
+        $this->first_name = $first_name;
+        $this->second_name = $second_name;
+        $this->created_at = null;
+    }
+
+    public function getUsername(): string
+    {
+        return $this->username;
+    }
+
+    public function setUsername(string $username): void
+    {
+        $this->username = $username;
+    }
+
+    public function getEmail(): string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(string $email): void
+    {
+        $this->email = $email;
+    }
+
+    public function getPasswordHash(): string
+    {
+        return $this->password_hash;
+    }
+
+    public function setPasswordHash(string $password_hash): void
+    {
+        $this->password_hash = $password_hash;
+    }
+
+    public function getFirstName(): ?string
+    {
+        return $this->first_name;
+    }
+
+    public function setFirstName(?string $first_name): void
+    {
+        $this->first_name = $first_name;
+    }
+
+    public function getSecondName(): ?string
+    {
+        return $this->second_name;
+    }
+
+    public function setSecondName(?string $second_name): void
+    {
+        $this->second_name = $second_name;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
+}
+
+
+=== FILE: ./models/Comment.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\models;
+
+use app\core\Model;
+
+class Comment extends Model
+{
+    private int $post_id;
+    private ?int $user_id;
+    private ?int $parent_id;
+    private string $content;
+    private ?string $created_at;
+    private bool $is_deleted;
+    
+
+    public function __construct(
+        ?int $id,
+        int $post_id,
+        ?int $user_id,
+        ?int $parent_id,
+        string $content,
+        bool $is_deleted = false
+    ) {
+        parent::__construct($id);
+        $this->post_id = $post_id;
+        $this->user_id = $user_id;
+        $this->parent_id = $parent_id;
+        $this->content = $content;
+        $this->created_at = null;
+        $this->is_deleted = $is_deleted;
+    }
+
+    public function getPostId(): int
+    {
+        return $this->post_id;
+    }
+
+    public function setPostId(int $post_id): void
+    {
+        $this->post_id = $post_id;
+    }
+
+    public function getUserId(): ?int
+    {
+        return $this->user_id;
+    }
+
+    public function setUserId(?int $user_id): void
+    {
+        $this->user_id = $user_id;
+    }
+
+    public function getParentId(): ?int
+    {
+        return $this->parent_id;
+    }
+
+    public function setParentId(?int $parent_id): void
+    {
+        $this->parent_id = $parent_id;
+    }
+
+    public function getContent(): string
+    {
+        return $this->content;
+    }
+
+    public function setContent(string $content): void
+    {
+        $this->content = $content;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->is_deleted;
+    }
+
+    public function setIsDeleted(bool $is_deleted): void
+    {
+        $this->is_deleted = $is_deleted;
+    }
+    
+}
+
+
+
+=== FILE: ./models/Post.php ===
+<?php
+declare(strict_types=1);
+namespace app\models;
+use app\core\Model;
+
+class Post extends Model
+{
+    private int $community_id;
+    private ?int $user_id;
+    private string $title;
+    private string $content;
+    private ?string $created_at;
+    private ?string $updated_at;
+    private bool $is_deleted;
+
+    public function __construct(
+        ?int $id,
+        int $community_id,
+        ?int $user_id,
+        string $title,
+        string $content,
+        ?string $updated_at = null,
+        bool $is_deleted = false
+    ) {
+        parent::__construct($id);
+        $this->community_id = $community_id;
+        $this->user_id = $user_id;
+        $this->title = $title;
+        $this->content = $content;
+        $this->created_at = null;
+        $this->updated_at = $updated_at;
+        $this->is_deleted = $is_deleted;
+    }
+
+    public function getCommunityId(): int
+    {
+        return $this->community_id;
+    }
+
+    public function setCommunityId(int $community_id): void
+    {
+        $this->community_id = $community_id;
+    }
+
+    public function getUserId(): ?int
+    {
+        return $this->user_id;
+    }
+
+    public function setUserId(?int $user_id): void
+    {
+        $this->user_id = $user_id;
+    }
+
+    public function getTitle(): string
+    {
+        return $this->title;
+    }
+
+    public function setTitle(string $title): void
+    {
+        $this->title = $title;
+    }
+
+    public function getContent(): string
+    {
+        return $this->content;
+    }
+
+    public function setContent(string $content): void
+    {
+        $this->content = $content;
+    }
+
+    public function getCreatedAt(): ?string
+    {
+        return $this->created_at;
+    }
+
+    public function setCreatedAt(?string $created_at): void
+    {
+        $this->created_at = $created_at;
+    }
+
+    public function getUpdatedAt(): ?string
+    {
+        return $this->updated_at;
+    }
+
+    public function setUpdatedAt(?string $updated_at): void
+    {
+        $this->updated_at = $updated_at;
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->is_deleted;
+    }
+
+    public function setIsDeleted(bool $is_deleted): void
+    {
+        $this->is_deleted = $is_deleted;
+    }
+}
+
+
+=== FILE: ./core/MethodEnum.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+enum MethodEnum: string
+{
+    case GET = "GET";
+    case POST = "POST";
+    case PUT = "PUT";
+    case DELETE = "DELETE";
+}
+
+
+
+=== FILE: ./core/HttpStatusCodeEnum.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+enum HttpStatusCodeEnum: int
+{
+    case HTTP_OK = 200;
+
+    case HTTP_NOT_FOUND = 404;
+
+    case HTTP_SERVER_ERROR = 500;
+}
+
+
+
+=== FILE: ./core/Model.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use app\controllers\api\ApiController;
+
+abstract class Model
+{
+    private ?int $id;
+
+    public function __construct(?int $id)
+    {
+        if (!is_null($id)) {
+            $this->setId($id);
+        }
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    /**
+     * @param int|null $id
+     */
+    public function setId(?int $id): void
+    {
+        $this->id = $id;
+    }
+}
+
+
+=== FILE: ./core/ConfigParser.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class ConfigParser
+{
+    public static function load()
+    {
+        $filename = PROJECT_ROOT . ".env";
+        if (!file_exists($filename)) return;
+        $lines = file($filename);
+        foreach ($lines as $line) {
+            $dataline = trim(explode("#", $line)[0]);
+            if (strlen($dataline)===0) continue;
+            $params = explode("=", $dataline, 2);
+            if (count($params)!==2) continue;
+            $key = rtrim($params[0]);
+            $value = ltrim($params[1]);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+            putenv("$key=$value");
+
+        }
+    }
+}
+
+
+=== FILE: ./core/Request.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Request
+{
+    public function getUri(): string
+    {
+        return $_SERVER["REQUEST_URI"];
+    }
+
+    public function getMethod(): MethodEnum
+    {
+        return MethodEnum::from($_SERVER["REQUEST_METHOD"]);
+    }
+
+    public function getBody(): array
+    {
+        $body = [];
+        switch ($this->getMethod()) {
+            case MethodEnum::GET:
+            case MethodEnum::DELETE:
+                foreach ($_GET as $key => $value) {
+                    $body[$key] = filter_input(INPUT_GET, $key, FILTER_SANITIZE_SPECIAL_CHARS);
+                }
+                break;
+            case MethodEnum::POST:
+            case MethodEnum::PUT:
+                foreach ($_POST as $key => $value) {
+                    $body[$key] = filter_input(INPUT_POST, $key, FILTER_SANITIZE_SPECIAL_CHARS);
+                }
+                break;
+        }
+        return $body;
+    }
+
+
+    //почитал, что &_POST не парсит jsonки так что отдельни метод напистаь нада
+    public function getJsonBody(): array
+    {
+        $input = file_get_contents('php://input');
+        $data = json_decode($input, true);
+
+        return is_array($data) ? $data : [];
+    }
+}
+
+
+
+=== FILE: ./core/Collection.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Collection
+{
+    private array $rows;
+
+    private int $count;
+
+    private array $objects = [];
+    private Mapper $mapper;
+
+    public function __construct(array $rows, Mapper $mapper)
+    {
+        $this->rows = $rows;
+        $this->count = count($rows);
+        $this->mapper = $mapper;
+    }
+
+    public function getNextRow()
+    {
+        for ($i = 0; $i < $this->count; $i++) {
+            yield $this->getRow($i);
+        }
+
+    }
+
+    private function getRow(int $i)
+    {
+        if ($i>= $this->count) {
+            return null;
+        }
+
+        if (!array_key_exists($i, $this->objects)) {
+            $this->objects[$i] = $this->mapper->createObject($this->rows[$i]);
+        }
+
+        return $this->objects[$i];
+
+    }
+}
+
+
+=== FILE: ./core/Application.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Application
+{
+    public static Application $app;
+    private Request $request;
+    private Response $response;
+    private Router $router;
+    private Logger $logger;
+    private Database $database;
+
+    public function __construct()
+    {
+        self::$app = $this;
+        $this->logger = new Logger(sprintf("%s%s/%s",PROJECT_ROOT, $_ENV["APP_LOG_PATH"], $_ENV["APP_LOG"]));
+        $this->request = new Request();
+        $this->response = new Response();
+        $this->router = new Router($this->request, $this->response);
+        $this->database = new Database(getenv("DB_DSN"), getenv("DB_USER"), getenv("DB_PASSWORD"));
+
+    }
+
+    public function run()
+    {
+
+        try {
+            $this->router->resolve();
+        } catch (\Exception $exception) {
+            $this->getLogger()->error("Cannot resolve route: $exception");
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_SERVER_ERROR);
+        }
+    }
+
+    public function getRequest(): Request
+    {
+        return $this->request;
+    }
+
+    public function getRouter(): Router
+    {
+        return $this->router;
+    }
+
+        /**
+     * @return Logger
+     */
+    public function getLogger(): Logger
+    {
+        return $this->logger;
+    }
+
+    /**
+     * @return Database
+     */
+    public function getDatabase(): Database
+    {
+        return $this->database;
+    }
+}
+
+
+=== FILE: ./core/Response.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Response
+{
+   public function setStatusCode(HttpStatusCodeEnum $status)
+   {
+       \http_response_code($status->value);
+   }
+}
+
+
+=== FILE: ./core/Database.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use PDO;
+class Database
+{
+  public PDO $pdo;
+  public function __construct(string $dsn, string $user, string $password)
+  {
+      $this->pdo = new PDO($dsn, $user, $password);
+      $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+  }
+}
+
+
+=== FILE: ./core/Template.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+class Template
+{
+    private static array $blocks = [];
+    private static $cache_path = PROJECT_ROOT . "/cache/";
+    private static $template_path = PROJECT_ROOT . "/views/";
+
+    private static bool $cache_enabled = false;
+
+    static function View($file, $data = []): void
+    {
+        $cached_file = self::Cache($file);
+        extract($data);
+        require $cached_file;
+    }
+
+    private static function CompilePHP(string $code): string
+    {
+        return preg_replace('~\{%\s*(.+?)\s*%}~is', '<?php $1 ?>', $code);
+    }
+
+    private static function CompileEchos(string $code): string
+    {
+        return preg_replace('~\{\{\s*(.+?)\s*}}~is', '<?= $1 ?>', $code);
+    }
+
+    private static function CompileEscapedEchos(string $code): string
+    {
+        return preg_replace('~\{\{\{\s*(.+?)\s*}}}~is', '<?php echo htmlentities($1, ENT_QUOTES, \'UTF-8\') ?>', $code);
+    }
+
+    private static function CompileBlock(string $code): string
+    {
+        preg_match_all('~\{% ?block ?(.*?) ?%}(.*?)\{% ?endblock ?%}~is', $code, $matches, PREG_SET_ORDER);
+        foreach ($matches as $value) {
+            if (!array_key_exists($value[1], self::$blocks)) {
+                self::$blocks[$value[1]] = '';
+            }
+            if (!str_contains($value[2], '@parent')) {
+                self::$blocks[$value[1]] = $value[2];
+            } else {
+                self::$blocks[$value[1]] = str_replace('@parent', self::$blocks[$value[1]], $value[2]);
+            }
+            $code = str_replace($value[0], '', $code);
+        }
+        return $code;
+    }
+
+    private static function CompileYield($code): string
+    {
+        foreach (self::$blocks as $block => $value) {
+            $code = preg_replace('~\{% ?yield ?' . $block . ' ?%}~', $value, $code);
+        }
+        preg_replace('~\{% ?yield ?(.*?) ?%}~i', '', $code);
+        return $code;
+    }
+
+    private static function CompileCode($code): string
+    {
+        $code = self::CompileBlock($code);
+        $code = self::CompileYield($code);
+        $code = self::CompileEscapedEchos($code);
+        $code = self::CompileEchos($code);
+        $code = self::CompilePHP($code);
+        return $code;
+    }
+
+    private static function IncludeFiles(string $file): string
+    {
+        $code = file_get_contents(self::$template_path . $file);
+        if (!$code) return "";
+        preg_match_all('~\{% ?(extends|include) ?\'?(.*?)\'? ?%}~i', $code, $matches, PREG_SET_ORDER);
+        foreach ($matches as $value) {
+            $code = str_replace($value[0], self::IncludeFiles($value[2]), $code);
+        }
+        return preg_replace('~\{% ?(extends|include) ?\'?(.*?)\'? ?%}~i', '', $code);
+    }
+
+    private static function Cache(string $file): string
+    {
+        if (!file_exists(self::$cache_path)) {
+            mkdir(self::$cache_path, 0744);
+        }
+        $cached_file = self::$cache_path . str_replace(['/', '.html'], ['_', ''], $file) . '.php';
+        if (!self::$cache_enabled || !file_exists($cached_file) || filemtime($cached_file) < filemtime($file)) {
+            $code = self::IncludeFiles($file);
+            $code = self::CompileCode($code);
+            file_put_contents($cached_file, '<?php class_exists(\'' . __CLASS__ . '\') or exit; ?>' . PHP_EOL . $code);
+        }
+        return $cached_file;
+    }
+
+    public static function ClearCache(): void {
+        foreach (glob(self::$cache_path."*") as $file) {
+            unlink($file);
+        }
+    }
+    
+}
+
+
+=== FILE: ./core/Mapper.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+abstract class Mapper
+{
+    private \PDO $pdo;
+
+    public function __construct()
+    {
+        $this->pdo = Application::$app->getDatabase()->pdo;
+    }
+
+    public function Insert(Model $model) {
+        $this->doInsert($model);
+    }
+
+    public function Update(Model $model) {
+        $this->doUpdate($model);
+    }
+
+    public function Delete(Model $model) {
+        $this->doDelete($model);
+    }
+
+    public function Select(int $id): Model {
+        return $this->createObject($this->doSelect($id));
+    }
+
+    public function SelectAll(): Collection {
+        return new Collection($this->doSelectAll(), $this->getInstance());
+    }
+
+    protected abstract function doInsert(Model $model): Model;
+
+    protected abstract function doUpdate(Model $model);
+
+    protected abstract function doDelete(Model $model);
+
+    protected abstract function doSelect(int $id): array;
+
+    protected abstract function doSelectAll(): array;
+
+    public abstract function getInstance(): Mapper;
+
+    public abstract function createObject(array $data): Model;
+
+    /**
+     * @return \PDO
+     */
+    public function getPdo(): \PDO
+    {
+        return $this->pdo;
+    }
+
+}
+
+
+=== FILE: ./core/Migration.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+abstract class Migration
+{
+
+    protected Database $database;
+    public abstract function getVersion(): int;
+
+    public function up(): void
+    {
+        $this->database->pdo->query("DELETE FROM migrations;");
+        $this->database->pdo->query("INSERT INTO migrations (version) values ({$this->getVersion()});");
+    }
+
+    public function down():void {}
+
+    /**
+     * @param Database $database
+     */
+    public function setDatabase(Database $database): void
+    {
+        $this->database = $database;
+    }
+
+
+}
+
+
+=== FILE: ./core/JsonConfigLoader.php ===
+<?php
+declare(strict_types=1);
+
+namespace app\core;
+
+use Exception;
+
+class JsonConfigLoader
+{
+    private string $filePath;
+
+    public function __construct(string $filePath)
+    {
+        $this->filePath = $filePath;
+    }
+
+    public function load(): void
+    {
+        if (!file_exists($this->filePath)) {
+            throw new Exception("JSON config file not found: {$this->filePath}");
+        }
+
+        $content = file_get_contents($this->filePath);
+        $data = json_decode($content, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Invalid JSON in config: " . json_last_error_msg());
+        }
+
+        if (isset($data['logs']['path'])) {
+            $logPath = rtrim($data['logs']['path'], "/") . "/";
+            putenv("APP_LOG_PATH=$logPath");
+            $_ENV["APP_LOG_PATH"] = $logPath;
+        } else {
+            throw new Exception("Missing 'logs.path' in config");
+        }
+
+        if (isset($data['jwt'])) {
+            $jwt = $data['jwt'];
+
+            putenv("JWT_SECRET={$jwt['secret']}");
+            $_ENV["JWT_SECRET"] = $jwt['secret'];
+
+            putenv("JWT_ALGORITHM={$jwt['algorithm']}");
+            $_ENV["JWT_ALGORITHM"] = $jwt['algorithm'];
+
+            putenv("JWT_TOKEN_TTL={$jwt['token_ttl']}");
+            $_ENV["JWT_TOKEN_TTL"] = $jwt['token_ttl'];
+
+            putenv("JWT_REFRESH_TOKEN_TTL={$jwt['refresh_token_ttl']}");
+            $_ENV["JWT_REFRESH_TOKEN_TTL"] = $jwt['refresh_token_ttl'];
+        }
+
+    }
+
+    
+}
+
+
+=== FILE: ./core/Logger.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use app\exceptions\FileException;
+use Psr\Log\AbstractLogger;
+
+class Logger extends AbstractLogger
+{
+
+    
+
+    private string $filename;
+
+    public function __construct(string $filename)
+    {
+        $this->filename = $filename;
+
+        $dir = dirname($filename);
+        if (!file_exists($dir))
+        {
+           $success =  mkdir($dir, 0777, true);
+           if (!$success) throw new FileException("Cannot create log dir");
+        }
+    }
+
+    public function log($level, $message, array $context = array()): void
+    {
+        file_put_contents($this->filename, sprintf("%s\t[$level] $message", date("H-m-s")));
+    }
+
+
+}
+
+
+=== FILE: ./core/Router.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\core;
+
+use app\exceptions\RouteException;
+
+class Router
+{
+    private Request $request;
+
+    private Response $response;
+
+    private array $routes = [];
+
+
+    public function __construct(Request $request, Response $response)
+    {
+        $this->request = $request;
+        $this->response = $response;
+    }
+
+    public function setGetRoute(string $path, string|array $callback): void
+    {
+        $this->routes[MethodEnum::GET->value][$path] = $callback;
+    }
+
+    public function setPostRoute(string $path, string|array $callback): void
+    {
+        $this->routes[MethodEnum::POST->value][$path] = $callback;
+    }
+
+    public function resolve(): void
+    {
+        $path = parse_url($this->request->getUri(), PHP_URL_PATH);
+        $method = $this->request->getMethod();
+        if ($method === MethodEnum::GET && preg_match("/(png|jpe?g|css|js)/", $path)) {
+            $this->renderStatic(ltrim($path, "/"));
+            return;
+        }
+
+        if (!isset($this->routes[$method->value]) || !isset($this->routes[$method->value][$path])) {
+            $this->renderStatic("404.html");
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_NOT_FOUND);
+            return;
+        }
+
+        $callback = $this->routes[$method->value][$path];
+
+        if (is_string($callback)) {
+            if (empty($callback)) {
+                throw new RouteException("empty callback");
+            }
+            $this->renderView($callback);
+        }
+
+        if (is_array($callback)) {
+            call_user_func($callback, $this->request);
+        }
+    }
+
+    public function renderView(string $name): void
+    {
+        include PROJECT_ROOT . "views/$name.php";
+    }
+
+    public function renderTemplate(string $name, array $data=[]): void
+    {
+
+       Template::View($name.'.html', $data);
+    }
+    public function renderStatic(string $name): void
+    {
+        include PROJECT_ROOT . "web/$name";
+    }
+}
+
+
+
+=== FILE: ./controllers/api/ApiController.php ===
+<?php
+
+namespace app\controllers\api;
+
+use app\core\Application;
+use app\utilits\JsonRenderable;
+
+class ApiController
+{
+
+    use JsonRenderable;
+
+    public function hello(): void
+    {
+        $this->renderJson(['message' => 'привет json!']);
+    }
+
+    public function helloUser(): void
+    {
+        $body = Application::$app->getRequest()->getJsonBody();
+
+        $username = $body['username'] ?? 'гость';
+
+        $this->renderJson(['message' => 'Привет, ' . $username . '!']);
+    }
+}
+
+
+
+=== FILE: ./controllers/PresentationController.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\controllers;
+
+use app\core\Application;
+use app\core\Logger;
+use app\exceptions\FileException;
+use app\mappers\UserMapper;
+use app\models\User;
+
+class PresentationController
+{
+  public function getView() {
+      Application::$app->getRouter()->renderTemplate("index", ["post_action"=>"handle"]);
+  }
+
+  public function handleView() {
+      $body = Application::$app->getRequest()->getBody();
+      try {
+         $mapper = new UserMapper();
+         $user = $mapper->createObject($body);
+         $mapper->Insert($user);
+         $users = $mapper->SelectAll();
+         var_dump($users);
+      } catch (\PDOException $exception)
+      {
+          Application::$app->getLogger()->error($exception);
+
+      }
+
+  }
+}
+
+
+=== FILE: ./mappers/UserMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+use app\core\Mapper;
+use app\core\Model;
+use app\models\User;
+
+class UserMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO users (username, email, password_hash, first_name, second_name)
+            VALUES (:username, :email, :password_hash, :first_name, :second_name)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE users
+            SET username = :username, email = :email, password_hash = :password_hash,
+                first_name = :first_name, second_name = :second_name
+            WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM users WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM users WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("SELECT * FROM users");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var User $model */
+        $this->insert->execute([
+            ':username' => $model->getUsername(),
+            ':email' => $model->getEmail(),
+            ':password_hash' => $model->getPasswordHash(),
+            ':first_name' => $model->getFirstName(),
+            ':second_name' => $model->getSecondName()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+
+        $this->select->execute([':id' => $id]);
+        $data = $this->select->fetch(\PDO::FETCH_NAMED);
+        if ($data !== false) {
+            $model->setCreatedAt($data['created_at']);
+        }
+
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var User $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':username' => $model->getUsername(),
+            ':email' => $model->getEmail(),
+            ':password_hash' => $model->getPasswordHash(),
+            ':first_name' => $model->getFirstName(),
+            ':second_name' => $model->getSecondName()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var User $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new User(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            username: $data['username'],
+            email: $data['email'],
+            password_hash: $data['password_hash'],
+            first_name: $data['first_name'] ?? null,
+            second_name: $data['second_name'] ?? null
+        );
+    }
+}
+
+
+=== FILE: ./mappers/CommentMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+use app\core\Mapper;
+use app\core\Model;
+use app\models\Comment;
+
+class CommentMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+    private ?\PDOStatement $findByPostId;
+    private ?\PDOStatement $findByUserId;
+    private ?\PDOStatement $findByParentId;
+    private ?\PDOStatement $findTopLevelByPostId;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO comments (post_id, user_id, parent_id, content)
+            VALUES (:post_id, :user_id, :parent_id, :content)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE comments
+            SET post_id = :post_id, user_id = :user_id, parent_id = :parent_id,
+                content = :content, is_deleted = :is_deleted
+            WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM comments WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM comments WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("
+            SELECT c.* FROM comments c
+            JOIN posts p ON c.post_id = p.id
+            WHERE c.is_deleted = FALSE AND p.is_deleted = FALSE
+        ");
+        $this->findByPostId = $this->getPdo()->prepare("
+            SELECT c.* FROM comments c
+            JOIN posts p ON c.post_id = p.id
+            WHERE c.post_id = :post_id AND c.is_deleted = FALSE AND p.is_deleted = FALSE
+        ");
+        $this->findByUserId = $this->getPdo()->prepare("
+            SELECT c.* FROM comments c
+            JOIN posts p ON c.post_id = p.id
+            WHERE c.user_id = :user_id AND c.is_deleted = FALSE AND p.is_deleted = FALSE
+        ");
+        $this->findByParentId = $this->getPdo()->prepare("
+            SELECT c.* FROM comments c
+            JOIN posts p ON c.post_id = p.id
+            WHERE c.parent_id = :parent_id AND c.is_deleted = FALSE AND p.is_deleted = FALSE
+        ");
+        $this->findTopLevelByPostId = $this->getPdo()->prepare("
+            SELECT c.* FROM comments c
+            JOIN posts p ON c.post_id = p.id
+            WHERE c.post_id = :post_id AND c.parent_id IS NULL AND c.is_deleted = FALSE AND p.is_deleted = FALSE
+        ");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var Comment $model */
+        $this->insert->execute([
+            ':post_id' => $model->getPostId(),
+            ':user_id' => $model->getUserId(),
+            ':parent_id' => $model->getParentId(),
+            ':content' => $model->getContent()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+
+        $this->select->execute([':id' => $id]);
+        $data = $this->select->fetch(\PDO::FETCH_NAMED);
+        if ($data !== false) {
+            $model->setCreatedAt($data['created_at']);
+            $model->setIsDeleted((bool)$data['is_deleted']);
+        }
+
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var Comment $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':post_id' => $model->getPostId(),
+            ':user_id' => $model->getUserId(),
+            ':parent_id' => $model->getParentId(),
+            ':content' => $model->getContent(),
+            ':is_deleted' => $model->isDeleted()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var Comment $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByPostId(int $post_id): array
+    {
+        $this->findByPostId->execute([':post_id' => $post_id]);
+        return $this->findByPostId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByUserId(int $user_id): array
+    {
+        $this->findByUserId->execute([':user_id' => $user_id]);
+        return $this->findByUserId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByParentId(int $parent_id): array
+    {
+        $this->findByParentId->execute([':parent_id' => $parent_id]);
+        return $this->findByParentId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findTopLevelByPostId(int $post_id): array
+    {
+        $this->findTopLevelByPostId->execute([':post_id' => $post_id]);
+        return $this->findTopLevelByPostId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new Comment(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            post_id: (int)$data['post_id'],
+            user_id: isset($data['user_id']) ? (int)$data['user_id'] : null,
+            parent_id: isset($data['parent_id']) ? (int)$data['parent_id'] : null,
+            content: $data['content'],
+            is_deleted: isset($data['is_deleted']) ? (bool)$data['is_deleted'] : false
+        );
+    }
+}
+
+
+=== FILE: ./mappers/TagMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+use app\core\Mapper;
+use app\core\Model;
+use app\models\Tag;
+
+class TagMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+    private ?\PDOStatement $findByPostId;
+    private ?\PDOStatement $findByName;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO tags (name) VALUES (:name)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE tags SET name = :name WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("
+            DELETE FROM tags WHERE id = :id
+        ");
+        $this->select = $this->getPdo()->prepare("
+            SELECT * FROM tags WHERE id = :id
+        ");
+        $this->selectAll = $this->getPdo()->prepare("
+            SELECT * FROM tags
+        ");
+        $this->findByPostId = $this->getPdo()->prepare("
+            SELECT t.* FROM tags t
+            JOIN post_tags pt ON t.id = pt.tag_id
+            JOIN posts p ON pt.post_id = p.id
+            WHERE pt.post_id = :post_id AND p.is_deleted = FALSE
+        ");
+        $this->findByName = $this->getPdo()->prepare("
+            SELECT * FROM tags WHERE name = :name
+        ");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var Tag $model */
+        $this->insert->execute([
+            ':name' => $model->getName()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var Tag $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':name' => $model->getName()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var Tag $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByPostId(int $post_id): array
+    {
+        $this->findByPostId->execute([':post_id' => $post_id]);
+        return $this->findByPostId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByName(string $name): ?array
+    {
+        $this->findByName->execute([':name' => $name]);
+        $result = $this->findByName->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : null;
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new Tag(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            name: $data['name']
+        );
+    }
+}
+
+
+=== FILE: ./mappers/PostMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+use app\core\Mapper;
+use app\core\Model;
+use app\models\Post;
+
+class PostMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+    private ?\PDOStatement $findByCommunityId;
+    private ?\PDOStatement $findByUserId;
+    private ?\PDOStatement $findByTags;
+    private ?\PDOStatement $findByTagsAndCommunity;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO posts (community_id, user_id, title, content)
+            VALUES (:community_id, :user_id, :title, :content)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE posts
+            SET community_id = :community_id, user_id = :user_id, title = :title,
+                content = :content, updated_at = CURRENT_TIMESTAMP, is_deleted = :is_deleted
+            WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM posts WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM posts WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("SELECT * FROM posts WHERE is_deleted = FALSE");
+        $this->findByCommunityId = $this->getPdo()->prepare("
+            SELECT * FROM posts WHERE community_id = :community_id AND is_deleted = FALSE
+        ");
+        $this->findByUserId = $this->getPdo()->prepare("
+            SELECT * FROM posts WHERE user_id = :user_id AND is_deleted = FALSE
+        ");
+        $this->findByTags = $this->getPdo()->prepare("
+            SELECT p.* FROM posts p
+            JOIN post_tags pt ON p.id = pt.post_id
+            WHERE pt.tag_id = ANY(:tag_ids) AND p.is_deleted = FALSE
+            GROUP BY p.id
+            HAVING COUNT(DISTINCT pt.tag_id) = :tag_count
+        ");
+        $this->findByTagsAndCommunity = $this->getPdo()->prepare("
+            SELECT p.* FROM posts p
+            JOIN post_tags pt ON p.id = pt.post_id
+            WHERE pt.tag_id = ANY(:tag_ids) AND p.community_id = :community_id AND p.is_deleted = FALSE
+            GROUP BY p.id
+            HAVING COUNT(DISTINCT pt.tag_id) = :tag_count
+        ");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var Post $model */
+        $this->insert->execute([
+            ':community_id' => $model->getCommunityId(),
+            ':user_id' => $model->getUserId(),
+            ':title' => $model->getTitle(),
+            ':content' => $model->getContent()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+
+        $this->select->execute([':id' => $id]);
+        $data = $this->select->fetch(\PDO::FETCH_NAMED);
+        if ($data !== false) {
+            $model->setCreatedAt($data['created_at']);
+            $model->setUpdatedAt($data['updated_at']);
+            $model->setIsDeleted((bool)$data['is_deleted']);
+        }
+
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var Post $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':community_id' => $model->getCommunityId(),
+            ':user_id' => $model->getUserId(),
+            ':title' => $model->getTitle(),
+            ':content' => $model->getContent(),
+            ':is_deleted' => $model->isDeleted()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var Post $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByCommunityId(int $community_id): array
+    {
+        $this->findByCommunityId->execute([':community_id' => $community_id]);
+        return $this->findByCommunityId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByUserId(int $user_id): array
+    {
+        $this->findByUserId->execute([':user_id' => $user_id]);
+        return $this->findByUserId->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByTags(array $tag_ids): array
+    {
+        $this->findByTags->execute([
+            ':tag_ids' => '{' . implode(',', $tag_ids) . '}',
+            ':tag_count' => count($tag_ids)
+        ]);
+        return $this->findByTags->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByTagsAndCommunity(array $tag_ids, int $community_id): array
+    {
+        $this->findByTagsAndCommunity->execute([
+            ':tag_ids' => '{' . implode(',', $tag_ids) . '}',
+            ':community_id' => $community_id,
+            ':tag_count' => count($tag_ids)
+        ]);
+        return $this->findByTagsAndCommunity->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new Post(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            community_id: (int)$data['community_id'],
+            user_id: isset($data['user_id']) ? (int)$data['user_id'] : null,
+            title: $data['title'],
+            content: $data['content'],
+            updated_at: $data['updated_at'] ?? null,
+            is_deleted: isset($data['is_deleted']) ? (bool)$data['is_deleted'] : false
+        );
+    }
+}
+
+
+=== FILE: ./mappers/CommunityMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+
+use app\core\Mapper;
+use app\core\Model;
+use app\core\Community;
+
+class CommunityMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO communities (name, description, creator_id)
+            VALUES (:name, :description, :creator_id)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE communities
+            SET name = :name, description = :description, creator_id = :creator_id
+            WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM communities WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM communities WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("SELECT * FROM communities");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var Community $model */
+        $this->insert->execute([
+            ':name' => $model->getName(),
+            ':description' => $model->getDescription(),
+            ':creator_id' => $model->getCreatorId()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+
+        // Получаем created_at после вставки
+        $this->select->execute([':id' => $id]);
+        $data = $this->select->fetch(\PDO::FETCH_NAMED);
+        if ($data !== false) {
+            $model->setCreatedAt($data['created_at']);
+        }
+
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var Community $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':name' => $model->getName(),
+            ':description' => $model->getDescription(),
+            ':creator_id' => $model->getCreatorId()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var Community $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new Community(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            name: $data['name'],
+            description: $data['description'] ?? null,
+            creator_id: isset($data['creator_id']) ? (int)$data['creator_id'] : null
+        );
+    }
+}
+
+
+=== FILE: ./mappers/RefreshTokenMapper.php ===
+<?php
+declare(strict_types=1);
+namespace app\mappers;
+use app\core\Mapper;
+use app\core\Model;
+use app\models\RefreshToken;
+
+class RefreshTokenMapper extends Mapper
+{
+    private ?\PDOStatement $insert;
+    private ?\PDOStatement $update;
+    private ?\PDOStatement $delete;
+    private ?\PDOStatement $select;
+    private ?\PDOStatement $selectAll;
+    private ?\PDOStatement $findByToken;
+    private ?\PDOStatement $findByUserId;
+    private ?\PDOStatement $deleteByUserId;
+    private ?\PDOStatement $deleteExpired;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->insert = $this->getPdo()->prepare("
+            INSERT INTO refresh_tokens (user_id, token, expires_at)
+            VALUES (:user_id, :token, :expires_at)
+        ");
+        $this->update = $this->getPdo()->prepare("
+            UPDATE refresh_tokens
+            SET user_id = :user_id, token = :token, expires_at = :expires_at
+            WHERE id = :id
+        ");
+        $this->delete = $this->getPdo()->prepare("DELETE FROM refresh_tokens WHERE id = :id");
+        $this->select = $this->getPdo()->prepare("SELECT * FROM refresh_tokens WHERE id = :id");
+        $this->selectAll = $this->getPdo()->prepare("
+            SELECT * FROM refresh_tokens WHERE expires_at > NOW()
+        ");
+        $this->findByToken = $this->getPdo()->prepare("
+            SELECT * FROM refresh_tokens
+            WHERE token = :token AND expires_at > NOW()
+        ");
+        $this->findByUserId = $this->getPdo()->prepare("
+            SELECT * FROM refresh_tokens
+            WHERE user_id = :user_id AND expires_at > NOW()
+        ");
+        $this->deleteByUserId = $this->getPdo()->prepare("
+            DELETE FROM refresh_tokens WHERE user_id = :user_id
+        ");
+        $this->deleteExpired = $this->getPdo()->prepare("
+            DELETE FROM refresh_tokens WHERE expires_at <= NOW()
+        ");
+    }
+
+    protected function doInsert(Model $model): Model
+    {
+        /** @var RefreshToken $model */
+        $this->deleteByUserId->execute([':user_id' => $model->getUserId()]);
+
+        $this->insert->execute([
+            ':user_id' => $model->getUserId(),
+            ':token' => $model->getToken(),
+            ':expires_at' => $model->getExpiresAt()
+        ]);
+        $id = $this->getPdo()->lastInsertId();
+        $model->setId((int)$id);
+
+        // Получаем created_at после вставки
+        $this->select->execute([':id' => $id]);
+        $data = $this->select->fetch(\PDO::FETCH_NAMED);
+        if ($data !== false) {
+            $model->setCreatedAt($data['created_at']);
+        }
+
+        return $model;
+    }
+
+    protected function doUpdate(Model $model): void
+    {
+        /** @var RefreshToken $model */
+        $this->update->execute([
+            ':id' => $model->getId(),
+            ':user_id' => $model->getUserId(),
+            ':token' => $model->getToken(),
+            ':expires_at' => $model->getExpiresAt()
+        ]);
+    }
+
+    protected function doDelete(Model $model): void
+    {
+        /** @var RefreshToken $model */
+        $this->delete->execute([':id' => $model->getId()]);
+    }
+
+    protected function doSelect(int $id): array
+    {
+        $this->select->execute([':id' => $id]);
+        $result = $this->select->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : [];
+    }
+
+    protected function doSelectAll(): array
+    {
+        $this->selectAll->execute();
+        return $this->selectAll->fetchAll(\PDO::FETCH_NAMED);
+    }
+
+    public function findByToken(string $token): ?array
+    {
+        $this->findByToken->execute([':token' => $token]);
+        $result = $this->findByToken->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : null;
+    }
+
+    public function findByUserId(int $user_id): ?array
+    {
+        $this->findByUserId->execute([':user_id' => $user_id]);
+        $result = $this->findByUserId->fetch(\PDO::FETCH_NAMED);
+        return $result !== false ? $result : null;
+    }
+
+    public function deleteByUserId(int $user_id): void
+    {
+        $this->deleteByUserId->execute([':user_id' => $user_id]);
+    }
+
+    public function deleteExpired(): void
+    {
+        $this->deleteExpired->execute();
+    }
+
+    public function getInstance(): Mapper
+    {
+        return $this;
+    }
+
+    public function createObject(array $data): Model
+    {
+        return new RefreshToken(
+            id: isset($data['id']) ? (int)$data['id'] : null,
+            user_id: (int)$data['user_id'],
+            token: $data['token'],
+            expires_at: $data['expires_at']
+        );
+    }
+}
+
+
+=== FILE: ./web/index.php ===
+<?php
+
+declare(strict_types=1);
+
+use app\controllers\PresentationController;
+use app\core\Application;
+use app\core\ConfigParser;
+use app\controllers\api\ApiController;
+use app\core\JsonConfigLoader;
+
+const PROJECT_ROOT = __DIR__ . "/../";
+
+require PROJECT_ROOT . "vendor/autoload.php";
+
+ConfigParser::load();
+if ($_ENV["APP_ENV"] === "dev") {
+    error_reporting(E_ALL);
+    ini_set("display_errors", "1");
+    ini_set("log_errors", "1");
+    ini_set("error_log", sprintf("%sruntime/%s", PROJECT_ROOT, $_ENV["PHP_LOG"]));
+}
+
+
+$jsonConfigPath = "config/app.json";
+$jsonLoader = new JsonConfigLoader($jsonConfigPath);
+$jsonLoader->load();
+
+
+
+
+
+
+$application = new Application();
+
+$router = $application->getRouter();
+
+$router->setGetRoute("/", [new PresentationController(), "getView"]);
+$router->setPostRoute("/handle", [new PresentationController(), "handleView"]);
+$router->setGetRoute("/api/helloApi", [new ApiController(), "hello"]);
+$router->setPostRoute("/api/helloApi", [new ApiController(), "helloUser"]);
+$router->setGetRoute("/error", "");
+
+ob_start();
+$application->run();
+ob_flush();
+
+
+
+=== FILE: ./exceptions/RouteException.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\exceptions;
+
+class RouteException extends \Exception
+{
+
+}
+
+
+=== FILE: ./exceptions/FileException.php ===
+<?php
+
+declare(strict_types=1);
+
+namespace app\exceptions;
+
+class FileException extends \Exception
+{
+   private string $filename;
+
+   public function __construct(string $message = "", int $code = 0, ?\Throwable $previous = null, string $filename="")
+   {
+       parent::__construct($message, $code, $previous);
+       $this->filename = $filename;
+   }
+
+    /**
+     * @return string
+     */
+    public function getFilename(): string
+    {
+        return $this->filename;
+    }
+}
+
+
+=== FILE: ./views/presentation.php ===
+<html lang="ru">
+<head>
+    <title>Форма</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<h2>Регистрация</h2>
+<form action="/handle" method="post">
+    <dl>
+        <dt><label for="first_name">Имя</label></dt>
+        <dd><input type="text" name="first_name" id="first_name"></dd>
+
+        <dt><label for="second_name">Фамилия</label></dt>
+        <dd><input type="text" name="second_name" id="second_name"></dd>
+
+        <dt><label for="age">Возраст</label></dt>
+        <dd><input type="text" name="age" id="age"></dd>
+
+        <dt><label for="email">E-Mail</label></dt>
+        <dd><input type="text" name="email" id="email"></dd>
+
+
+        <dt><label for="job">РАБота</label></dt>
+        <dd><input type="text" name="job" id="job"></dd>
+
+        <dt></dt>
+        <dd><input type="submit" value="submit"></dd>
+
+
+    </dl>
+
+
+</form>
+</body>
+</html>
+
+
+=== FILE: ./views/success.php ===
+<html lang="ru">
+<head>
+    <title>Success</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<h1>Success!</h1>
+<a href="/">На главную</a>
+</body>
+</html>
+
+
+=== FILE: ./utilits/JsonRenderable.php ===
+<?php
+
+namespace app\utilits;
+
+trait JsonRenderable
+{
+    public function renderJson(array $data): void
+    {
+        header('Content-Type: application/json');
+        echo json_encode($data);
+    }
+}
+
+
+

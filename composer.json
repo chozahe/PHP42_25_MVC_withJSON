@@ -17,6 +17,11 @@
     "require": {
         "psr/log": "*",
         "ext-pdo": "*",
-        "ext-pdo_pgsql": "*"
+        "ext-pdo_pgsql": "*",
+        "firebase/php-jwt": "dev-main",
+        "paragonie/sodium_compat": "^2.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.2@dev"
     }
 }

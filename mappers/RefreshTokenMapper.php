@@ -132,7 +132,7 @@ class RefreshTokenMapper extends Mapper
         return $this;
     }
 
-    public function createObject(array $data): Model
+    public function createObject(array $data): RefreshToken
     {
         return new RefreshToken(
             id: isset($data['id']) ? (int)$data['id'] : null,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\core;
 
 use app\exceptions\RouteException;
+use app\exceptions\ValidationException;
 
 class Router
 {
@@ -13,6 +14,8 @@ class Router
     private Response $response;
 
     private array $routes = [];
+
+    private array $protectedRoutes = [];
 
 
     public function __construct(Request $request, Response $response)
@@ -24,6 +27,11 @@ class Router
     public function setGetRoute(string $path, string|array $callback): void
     {
         $this->routes[MethodEnum::GET->value][$path] = $callback;
+    }
+
+    public function setProtectedRoute(string $method, string $path): void
+    {
+        $this->protectedRoutes[$method][$path] = true;
     }
 
     public function setPostRoute(string $path, string|array $callback): void
@@ -48,15 +56,28 @@ class Router
 
         $callback = $this->routes[$method->value][$path];
 
-        if (is_string($callback)) {
-            if (empty($callback)) {
-                throw new RouteException("empty callback");
+        try {
+            //  middleware для защищённых маршрутов
+            if (isset($this->protectedRoutes[$method->value][$path])) {
+                $middleware = new JwtMiddleware();
+                $middleware->handle($this->request);
             }
-            $this->renderView($callback);
-        }
 
-        if (is_array($callback)) {
-            call_user_func($callback, $this->request);
+            if (is_string($callback)) {
+                if (empty($callback)) {
+                    throw new RouteException("empty callback");
+                }
+                $this->renderView($callback);
+            } elseif (is_array($callback)) {
+                call_user_func($callback, $this->request);
+            }
+        } catch (ValidationException $e) {
+            $this->response->setStatusCode(HttpStatusCodeEnum::from($e->getCode() ?: 400));
+            $this->renderJson(['error' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            $this->response->setStatusCode(HttpStatusCodeEnum::HTTP_SERVER_ERROR);
+            $this->renderJson(['error' => 'Internal server error']);
+            Application::$app->getLogger()->error("Cannot resolve route: $e");
         }
     }
 
@@ -73,5 +94,10 @@ class Router
     public function renderStatic(string $name): void
     {
         include PROJECT_ROOT . "web/$name";
+    }
+    private function renderJson(array $data): void
+    {
+        header('Content-Type: application/json');
+        echo json_encode($data);
     }
 }

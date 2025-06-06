@@ -4,7 +4,7 @@ namespace app\mappers;
 
 use app\core\Mapper;
 use app\core\Model;
-use app\core\Community;
+use app\models\Community;
 
 class CommunityMapper extends Mapper
 {

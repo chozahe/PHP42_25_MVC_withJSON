@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use app\migrations\{Migration_0, Migration_1, Migration_2, Migration_3, Migration_4, Migration_5};
+use app\migrations\{Migration_0, Migration_1, Migration_2, Migration_3, Migration_4, Migration_5, Migration_6};
 
 function getMigrations(): array
 {
@@ -12,6 +12,7 @@ function getMigrations(): array
         new Migration_2(),
         new Migration_3(),
         new Migration_4(),
-        new Migration_5()
+        new Migration_5(),
+        new Migration_6()
     ];
 }

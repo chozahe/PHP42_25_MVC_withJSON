@@ -51,6 +51,22 @@ class JsonConfigLoader
             $_ENV["JWT_REFRESH_TOKEN_TTL"] = $jwt['refresh_token_ttl'];
         }
 
+        if (isset($data['email'])) {
+        $email = $data['email'];
+        putenv("SMTP_HOST={$email['smtp_host']}");
+        $_ENV["SMTP_HOST"] = $email['smtp_host'];
+        putenv("SMTP_PORT={$email['smtp_port']}");
+        $_ENV["SMTP_PORT"] = $email['smtp_port'];
+        putenv("SMTP_USERNAME={$email['smtp_username']}");
+        $_ENV["SMTP_USERNAME"] = $email['smtp_username'];
+        putenv("SMTP_PASSWORD={$email['smtp_password']}");
+        $_ENV["SMTP_PASSWORD"] = $email['smtp_password'];
+        putenv("FROM_EMAIL={$email['from_email']}");
+        $_ENV["FROM_EMAIL"] = $email['from_email'];
+        putenv("FROM_NAME={$email['from_name']}");
+        $_ENV["FROM_NAME"] = $email['from_name'];
+    }
+
     }
 
     

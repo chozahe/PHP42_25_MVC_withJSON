@@ -19,6 +19,15 @@ class Template
         require $cached_file;
     }
 
+    public static function Render(string $file, array $data = []): string
+    {
+        $cached_file = self::Cache($file);
+        ob_start();
+        extract($data);
+        require $cached_file;
+        return ob_get_clean();
+    }
+
     private static function CompilePHP(string $code): string
     {
         return preg_replace('~\{%\s*(.+?)\s*%}~is', '<?php $1 ?>', $code);

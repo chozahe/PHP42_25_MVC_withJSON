@@ -42,6 +42,7 @@ $router->setPostRoute("/api/logout", [new AuthController(), "logout"]);
 $router->setProtectedRoute(MethodEnum::POST->value, "/api/logout");
 $router->setGetRoute("/api/me", [new AuthController(), "getCurrentUser"]);
 $router->setProtectedRoute(MethodEnum::GET->value, "/api/me");
+$router->setPostRoute("/api/verify-code", [new AuthController(), "verifyCode"]);
 
 ob_start();
 $application->run();

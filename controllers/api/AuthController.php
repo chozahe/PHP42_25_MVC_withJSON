@@ -126,33 +126,56 @@ class AuthController
      */
     public function getCurrentUser(Request $request): void
     {
-    try {
-        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
-            throw new ValidationException("Authorization header with Bearer token is required", HttpStatusCodeEnum::HTTP_UNAUTHORIZED->value);
+        try {
+            $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+            if (!preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
+                throw new ValidationException("Authorization header with Bearer token is required", HttpStatusCodeEnum::HTTP_UNAUTHORIZED->value);
+            }
+            $jwt = $matches[1];
+            $user = $this->authService->getCurrentUser($jwt);
+            if (!$user) {
+                throw new ValidationException("User not found", HttpStatusCodeEnum::HTTP_NOT_FOUND->value);
+            }
+            $this->renderJson([
+                'message' => 'User profile retrieved successfully',
+                'user' => [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'email' => $user->getEmail(),
+                    'first_name' => $user->getFirstName(),
+                    'second_name' => $user->getSecondName(),
+                    'created_at' => $user->getCreatedAt()
+                ]
+            ], HttpStatusCodeEnum::HTTP_OK);
+        } catch (ValidationException $e) {
+            Application::$app->getLogger()->error("Get user profile failed: " . $e->getMessage());
+            $this->renderJson(['error' => $e->getMessage()], HttpStatusCodeEnum::tryFrom($e->getCode()) ?? HttpStatusCodeEnum::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            Application::$app->getLogger()->error("Unexpected error during get user profile: " . $e->getMessage());
+            $this->renderJson(['error' => 'Internal server error'], HttpStatusCodeEnum::HTTP_SERVER_ERROR);
         }
-        $jwt = $matches[1];
-        $user = $this->authService->getCurrentUser($jwt);
-        if (!$user) {
-            throw new ValidationException("User not found", HttpStatusCodeEnum::HTTP_NOT_FOUND->value);
-        }
-        $this->renderJson([
-            'message' => 'User profile retrieved successfully',
-            'user' => [
-                'id' => $user->getId(),
-                'username' => $user->getUsername(),
-                'email' => $user->getEmail(),
-                'first_name' => $user->getFirstName(),
-                'second_name' => $user->getSecondName(),
-                'created_at' => $user->getCreatedAt()
-            ]
-        ], HttpStatusCodeEnum::HTTP_OK);
-    } catch (ValidationException $e) {
-        Application::$app->getLogger()->error("Get user profile failed: " . $e->getMessage());
-        $this->renderJson(['error' => $e->getMessage()], HttpStatusCodeEnum::tryFrom($e->getCode()) ?? HttpStatusCodeEnum::HTTP_BAD_REQUEST);
-    } catch (\Exception $e) {
-        Application::$app->getLogger()->error("Unexpected error during get user profile: " . $e->getMessage());
-        $this->renderJson(['error' => 'Internal server error'], HttpStatusCodeEnum::HTTP_SERVER_ERROR);
     }
+
+    /**
+     * POST /api/verify-code
+     */
+    public function verifyCode(Request $request): void
+    {
+        try {
+            $body = $request->getJsonBody();
+            if (!isset($body['user_id'], $body['code'])) {
+                throw new ValidationException("User ID and code are required", HttpStatusCodeEnum::HTTP_BAD_REQUEST->value);
+            }
+            $isValid = $this->authService->verifyCode((int)$body['user_id'], $body['code']);
+            if (!$isValid) {
+                throw new ValidationException("Invalid or expired verification code", HttpStatusCodeEnum::HTTP_BAD_REQUEST->value);
+            }
+            $this->renderJson(['message' => 'Verification successful'], HttpStatusCodeEnum::HTTP_OK);
+        } catch (ValidationException $e) {
+            $this->renderJson(['error' => $e->getMessage()], HttpStatusCodeEnum::tryFrom($e->getCode()) ?? HttpStatusCodeEnum::HTTP_BAD_REQUEST);
+        } catch (\Exception $e) {
+            Application::$app->getLogger()->error("Unexpected error during verification: " . $e->getMessage());
+            $this->renderJson(['error' => 'Internal server error'], HttpStatusCodeEnum::HTTP_SERVER_ERROR);
+        }
     }
 }

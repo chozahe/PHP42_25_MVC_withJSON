@@ -11,14 +11,20 @@ class User extends Model
     private ?string $first_name;
     private ?string $second_name;
     private ?string $created_at;
+    private bool $is_verified;
+    private ?string $verification_code;
+    private ?string $code_expires_at;
 
     public function __construct(
-        ?int $id,
         string $username,
         string $email,
         string $password_hash,
-        ?string $first_name,
-        ?string $second_name
+        ?string $first_name = null,
+        ?string $second_name = null,
+        bool $is_verified = false,
+        ?string $verification_code = null,
+        ?string $code_expires_at = null,
+        ?int $id = null
     ) {
         parent::__construct($id);
         $this->username = $username;
@@ -27,6 +33,9 @@ class User extends Model
         $this->first_name = $first_name;
         $this->second_name = $second_name;
         $this->created_at = null;
+        $this->is_verified = $is_verified;
+        $this->verification_code = $verification_code;
+        $this->code_expires_at = $code_expires_at;
     }
 
     public function getUsername(): string
@@ -87,5 +96,30 @@ class User extends Model
     public function setCreatedAt(?string $created_at): void
     {
         $this->created_at = $created_at;
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->is_verified ?? false; 
+    }
+    public function setIsVerified(bool $is_verified): void 
+    {
+         $this->is_verified = $is_verified; 
+    }
+    public function getVerificationCode(): ?string 
+    {
+        return $this->verification_code; 
+    }
+    public function setVerificationCode(?string $code): void 
+    { 
+        $this->verification_code = $code; 
+    }
+    public function getCodeExpiresAt(): ?string 
+    { 
+        return $this->code_expires_at; 
+    }
+    public function setCodeExpiresAt(?string $expires_at): void 
+    { 
+        $this->code_expires_at = $expires_at; 
     }
 }

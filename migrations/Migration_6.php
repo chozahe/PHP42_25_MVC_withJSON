@@ -24,4 +24,9 @@ class Migration_6 extends Migration
         ");
         parent::up();
     }
+
+    public function down(): void
+    {
+        $this->database->pdo->query("DROP TABLE IF EXISTS verification_codes");
+    }
 }

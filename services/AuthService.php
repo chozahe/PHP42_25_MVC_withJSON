@@ -13,6 +13,10 @@ use app\models\RefreshToken;
 use app\models\User;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+use app\core\Template;
+
 
 class AuthService
 {
@@ -31,53 +35,47 @@ class AuthService
      */
     public function register(array $data): User
     {
-        $requiredFields = ['username', 'email', 'password'];
-        foreach ($requiredFields as $field) {
-            if (!isset($data[$field]) || empty(trim($data[$field]))) {
-                throw new ValidationException("Field '$field' is required");
-            }
+        if (!isset($data['username'], $data['email'], $data['password'])) {
+            throw new ValidationException("Username, email, and password are required");
         }
-
-        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-            throw new ValidationException("Invalid email format");
-        }
-
         if (strlen($data['password']) < 8) {
             throw new ValidationException("Password must be at least 8 characters long");
         }
-
-        $existingUser = $this->userMapper->doSelectByUsername($data['username']);
-        if ($existingUser) {
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new ValidationException("Invalid email format");
+        }
+        if ($this->userMapper->doSelectByUsername($data['username'])) {
             throw new ValidationException("Username already exists");
         }
-        $existingEmail = $this->userMapper->doSelectByEmail($data['email']);
-        if ($existingEmail) {
+        if ($this->userMapper->doSelectByEmail($data['email'])) {
             throw new ValidationException("Email already exists");
         }
-
         $passwordHash = password_hash($data['password'], PASSWORD_BCRYPT);
-
         $user = new User(
-            id: null,
             username: $data['username'],
             email: $data['email'],
             password_hash: $passwordHash,
             first_name: $data['first_name'] ?? null,
-            second_name: $data['second_name'] ?? null
+            second_name: $data['second_name'] ?? null,
+            is_verified: false,
+            verification_code: null,
+            code_expires_at: null,
+            id: null
         );
-
-        // Сохранение в базе
-        $this->userMapper->Insert($user);
-
+        $user = $this->userMapper->doInsert($user);
+        try {
+            $this->sendVerificationCode($user);
+        } catch (\Exception $e) {
+            Application::$app->getLogger()->error("Failed to send verification email: {$e->getMessage()}");
+        }
         return $user;
     }
-
     /**
      * @throws ValidationException
      */
     public function login(array $data): array
     {
-        // Валидация
+
         if (!isset($data['username']) || !isset($data['password'])) {
             throw new ValidationException("Username and password are required");
         }
@@ -93,7 +91,10 @@ class AuthService
             throw new ValidationException("Invalid username or password");
         }
 
-        // Генерация JWT
+        if (!$user->isVerified()) {
+        throw new ValidationException("Account not verified");
+        }
+
         $issuedAt = time();
         $jwtPayload = [
             'iss' => 'http://example.org',
@@ -130,7 +131,6 @@ class AuthService
      */
     public function refreshToken(string $refreshToken): array
     {
-        // Поиск рефреш-токена
         $tokenData = $this->refreshTokenMapper->findByToken($refreshToken);
         if (!$tokenData) {
             throw new ValidationException("Invalid or expired refresh token");
@@ -144,7 +144,6 @@ class AuthService
 
         $user = $this->userMapper->createObject($userData);
 
-        // Генерация нового JWT
         $issuedAt = time();
         $jwtPayload = [
             'iat' => $issuedAt,
@@ -184,8 +183,6 @@ class AuthService
         try {
             $decoded = JWT::decode($jwt, new Key($_ENV['JWT_SECRET'], $_ENV['JWT_ALGORITHM']));
             $userId = $decoded->user_id;
-
-            // Удаление рефреш-токена
             $this->refreshTokenMapper->deleteByUserId($userId);
 
         } catch (\Exception $e) {
@@ -208,5 +205,63 @@ class AuthService
         } catch (\Exception $e) {
             throw new ValidationException("Invalid JWT token: " . $e->getMessage());
         }
+    }
+
+    private function sendEmail(string $to, string $subject, string $body): void
+    {
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host = $_ENV['SMTP_HOST'];
+            $mail->SMTPAuth = true;
+            $mail->Username = $_ENV['SMTP_USERNAME'];
+            $mail->Password = $_ENV['SMTP_PASSWORD'];
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = (int)$_ENV['SMTP_PORT'];
+            $mail->setFrom($_ENV['FROM_EMAIL'], $_ENV['FROM_NAME']);
+            $mail->addAddress($to);
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $body;
+            $mail->send();
+        } catch (Exception $e) {
+            throw new \Exception("Failed to send email");
+        }
+    }
+
+    public function sendVerificationCode(User $user): void
+    {
+        $code = sprintf("%04d", random_int(0, 9999));
+        $expiresAt = date('Y-m-d H:i:s', time() + 900); 
+        $user->setVerificationCode($code);
+        $user->setCodeExpiresAt($expiresAt);
+        $this->userMapper->doUpdate($user);
+        $body = Template::Render('emails/verification_code.html', [
+            'username' => $user->getUsername(),
+            'code' => $code
+        ]);
+        $this->sendEmail($user->getEmail(), "Verify Your Account", $body);
+    }
+
+    public function verifyCode(int $userId, string $code): bool
+    {
+        try {
+        $user = $this->userMapper->findByVerificationCode($userId, $code);
+        if (!$user) {
+            return false;
+        }
+
+        $user->setIsVerified(true);
+        $user->setVerificationCode(null);
+        $user->setCodeExpiresAt(null);
+
+        $this->userMapper->doUpdate($user);
+
+        return true;
+    } catch (\Throwable $e) {
+        Application::$app->getLogger()->error("Четааа с базой данных: " . $e->getMessage());
+        return false;
+    }
+
     }
 }

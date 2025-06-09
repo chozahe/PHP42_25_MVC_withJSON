@@ -11,7 +11,6 @@ use Firebase\JWT\Key;
 class JwtMiddleware
 {
     /**
-     * Проверяет JWT-токен в запросе
      * @throws ValidationException
      */
     public function handle(Request $request): void
@@ -29,7 +28,6 @@ class JwtMiddleware
         try {
             $decoded = JWT::decode($jwt, new Key($_ENV['JWT_SECRET'], $_ENV['JWT_ALGORITHM']));
             $request->setJwtData((array)$decoded);
-            Application::$app->getLogger()->info("JWT verified for user_id: {$decoded->user_id}");
         } catch (\Exception $e) {
             Application::$app->getLogger()->error("JWT verification failed: " . $e->getMessage());
             throw new ValidationException(
